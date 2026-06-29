@@ -50,28 +50,33 @@ export type Proxy = {
   hits: number;
   proxyDomain: string;
   interceptEnabled: boolean;
+  tunnelBackend: "direct" | "pangolin" | "frp";
+  tunnelId: number | null;
   injectJs: string;
   injectJsEnabled: boolean;
   phishlet: string;
-  tunnelId: number | null;
   createdAt: number;
   updatedAt: number;
 };
 
 // ── Self-hosted proxy tunnel types (Pangolin/frp/NetBird) ──
 
+export type TunnelBackend = "direct" | "pangolin" | "frp";
+
 export type ProxyTunnel = {
   id: number;
   name: string;
+  backend: TunnelBackend;
   type: "tcp" | "http";
   remotePort: number;
   localHost: string;
   localPort: number;
-  status: "running" | "stopped" | "error";
+  status: "running" | "stopped" | "error" | "degraded";
   uptime: number;
   bytesIn: number;
   bytesOut: number;
   activeConns: number;
+  hasChildProcess?: boolean;
 };
 
 export type TunnelListResult = {
@@ -81,11 +86,26 @@ export type TunnelListResult = {
 
 export type TunnelCreateInput = {
   name: string;
+  backend?: TunnelBackend;
   type?: "tcp" | "http";
   localIP?: string;
   localPort: number;
   remotePort?: number;
   autoStart?: boolean;
+};
+
+export type BackendInfo = {
+  id: TunnelBackend;
+  label: string;
+  description: string;
+  available: boolean;
+  features: string[];
+  configRequired: string[];
+};
+
+export type BackendsResult = {
+  backends: BackendInfo[];
+  activeBackend: TunnelBackend;
 };
 
 export type ProxyStatus = {

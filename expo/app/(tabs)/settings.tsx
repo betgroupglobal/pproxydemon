@@ -64,6 +64,7 @@ const CONFIG_GROUPS: Array<{ title: string; icon: React.ElementType; keys: strin
   { title: "Edge Proxy", icon: Network, keys: ["PROXY_TARGET", "BASE_DOMAIN", "ALLOWED_ORIGINS"] },
   { title: "Intercept Lab", icon: Sliders, keys: ["INTERCEPT_LAB_MODE", "INTERCEPT_ALLOWLIST", "INTERCEPT_BLOCKLIST", "INTERCEPT_TTL_SECONDS"] },
   { title: "AI Phishlet Engine", icon: Cpu, keys: ["TOOLKIT_URL", "TOOLKIT_SECRET"] },
+  { title: "Tunnel Backends", icon: Network, keys: ["DEFAULT_TUNNEL_BACKEND", "PANGOLIN_CONTROL_PLANE", "PANGOLIN_AUTH_TOKEN", "FRPS_ADDR", "FRPS_PORT", "FRP_AUTH_TOKEN"] },
 ];
 
 const FIELD_LABELS: Record<string, string> = {
@@ -72,6 +73,9 @@ const FIELD_LABELS: Record<string, string> = {
   INTERCEPT_TTL_SECONDS: "Intercept TTL", API_KEY: "API Key",
   TOOLKIT_URL: "Toolkit URL", TOOLKIT_SECRET: "Toolkit Secret",
   PROXY_TARGET: "Default Proxy Target", BASE_DOMAIN: "Base Domain",
+  DEFAULT_TUNNEL_BACKEND: "Default Backend", PANGOLIN_CONTROL_PLANE: "Pangolin Control Plane",
+  PANGOLIN_AUTH_TOKEN: "Pangolin Auth Token", FRPS_ADDR: "frps Address",
+  FRPS_PORT: "frps Port", FRP_AUTH_TOKEN: "frp Auth Token",
 };
 
 const FIELD_HINTS: Record<string, string> = {
@@ -86,6 +90,8 @@ const FIELD_DEFAULT: Record<string, string> = {
   ALLOWED_ORIGINS: "", INTERCEPT_LAB_MODE: "false", INTERCEPT_ALLOWLIST: "",
   INTERCEPT_BLOCKLIST: "", INTERCEPT_TTL_SECONDS: "600", API_KEY: "",
   TOOLKIT_URL: "", TOOLKIT_SECRET: "", PROXY_TARGET: "", BASE_DOMAIN: "",
+  DEFAULT_TUNNEL_BACKEND: "direct", PANGOLIN_CONTROL_PLANE: "", PANGOLIN_AUTH_TOKEN: "",
+  FRPS_ADDR: "", FRPS_PORT: "7000", FRP_AUTH_TOKEN: "",
 };
 
 function authHeader(apiKey: string): string | undefined {

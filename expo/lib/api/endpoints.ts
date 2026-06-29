@@ -142,6 +142,13 @@ export function proxyUrl(slug: string): string {
 
 // ── Proxy Tunnels (self-hosted Pangolin/frp/NetBird) ─────────────────────────
 
+/** List available tunneling backends (direct, pangolin, frp) and their readiness. */
+export async function fetchBackends() {
+  const response = await safeFetch(`${BASE()}/api/proxy/backends`, { cache: "no-store" });
+  const data = await parse<{ data: import("./types").BackendsResult }>(response);
+  return data.data;
+}
+
 export async function fetchProxyStatus(): Promise<ProxyStatus> {
   const response = await safeFetch(`${BASE()}/api/proxy/status`, { cache: "no-store" });
   const data = await parse<{ data: ProxyStatus }>(response);

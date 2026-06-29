@@ -1,4 +1,4 @@
-import { Play, Square, Trash2 } from "lucide-react-native";
+import { Play, Server, Shield, Square, Trash2 } from "lucide-react-native";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "@/constants/theme";
@@ -19,6 +19,9 @@ export default function TunnelRow({ tunnel, authHeader }: TunnelRowProps) {
     return `${(b / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const backendLabel = tunnel.backend === "pangolin" ? "Pangolin" : tunnel.backend === "frp" ? "frp" : "direct";
+  const BackendIcon = tunnel.backend === "pangolin" ? Shield : tunnel.backend === "frp" ? Server : null;
+
   return (
     <View style={styles.row}>
       <View style={styles.info}>
@@ -36,6 +39,17 @@ export default function TunnelRow({ tunnel, authHeader }: TunnelRowProps) {
           <Text style={styles.name} numberOfLines={1}>
             {tunnel.name}
           </Text>
+          {BackendIcon && (
+            <View style={styles.backendBadge}>
+              <BackendIcon size={9} color={theme.colors.accent} />
+              <Text style={styles.backendLabel}>{backendLabel}</Text>
+            </View>
+          )}
+          {tunnel.backend === "direct" && (
+            <View style={styles.backendBadge}>
+              <Text style={styles.backendLabel}>direct</Text>
+            </View>
+          )}
         </View>
         <View style={styles.meta}>
           <Text style={styles.detail}>
@@ -150,4 +164,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(239,68,68,0.08)",
   },
   pressed: { opacity: 0.55 },
+  backendBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: theme.colors.bgElevated,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  backendLabel: {
+    color: theme.colors.accent,
+    fontSize: 8,
+    fontWeight: "700",
+    fontFamily: theme.font.mono,
+  },
 });
