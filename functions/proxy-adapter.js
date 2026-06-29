@@ -1,11 +1,11 @@
 /**
  * Local HTTP proxy adapter for standard HTTP CONNECT proxies (e.g. Bright Data).
  *
- * The gateway runs in a Workers-compatible runtime (workerd via wrangler dev) which
- * cannot speak standard HTTP CONNECT itself. This adapter sits on localhost and
- * exposes a URL-rewriting interface: `/?url=<target>`. The gateway's
- * RESIDENTIAL_PROXY_POOL can point to this adapter, and the adapter forwards the
- * request through the configured upstream proxy.
+ * The gateway runs in a Node.js HTTP server which cannot speak standard HTTP
+ * CONNECT itself. This adapter sits on localhost and exposes a URL-rewriting
+ * interface: `/?url=<target>`. The gateway's RESIDENTIAL_PROXY_POOL can point
+ * to this adapter, and the adapter forwards the request through the configured
+ * upstream proxy.
  */
 
 import http from "http";

@@ -7,11 +7,6 @@
       "framework": "react-native"
     },
     {
-      "name": "Functions",
-      "path": "functions",
-      "framework": "cloudflare"
-    },
-    {
       "name": "Edge Gateway Dashboard",
       "path": "ios-edge-gateway-dashboard",
       "framework": "swift"
