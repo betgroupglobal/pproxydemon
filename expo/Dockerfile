@@ -2,23 +2,43 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Railway service variable passed into the build environment.
+# ── Build-time env vars (set as Railway service variables) ──────────────────
+# Railway auto-passes service variables as Docker build args.
+# Declare them explicitly so the Expo web build can inline them.
+ARG EXPO_PUBLIC_SUPABASE_URL
+ARG EXPO_PUBLIC_SUPABASE_ANON_KEY
 ARG EXPO_PUBLIC_RORK_FUNCTIONS_URL
+ARG EXPO_PUBLIC_TOOLKIT_URL
+ARG EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY
+ARG EXPO_PUBLIC_PROJECT_ID
+ARG EXPO_PUBLIC_TEAM_ID
+ARG EXPO_PUBLIC_RORK_API_BASE_URL
+ARG EXPO_PUBLIC_RORK_APP_KEY
+ARG EXPO_PUBLIC_RORK_AUTH_URL
+
+ENV EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
+ENV EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}
 ENV EXPO_PUBLIC_RORK_FUNCTIONS_URL=${EXPO_PUBLIC_RORK_FUNCTIONS_URL}
+ENV EXPO_PUBLIC_TOOLKIT_URL=${EXPO_PUBLIC_TOOLKIT_URL}
+ENV EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY=${EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY}
+ENV EXPO_PUBLIC_PROJECT_ID=${EXPO_PUBLIC_PROJECT_ID}
+ENV EXPO_PUBLIC_TEAM_ID=${EXPO_PUBLIC_TEAM_ID}
+ENV EXPO_PUBLIC_RORK_API_BASE_URL=${EXPO_PUBLIC_RORK_API_BASE_URL}
+ENV EXPO_PUBLIC_RORK_APP_KEY=${EXPO_PUBLIC_RORK_APP_KEY}
+ENV EXPO_PUBLIC_RORK_AUTH_URL=${EXPO_PUBLIC_RORK_AUTH_URL}
 
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
 COPY . .
 
-# Build the Expo web export; the backend URL is injected by the service variable
-# EXPO_PUBLIC_RORK_FUNCTIONS_URL at build time.
+# Build the Expo web export — all EXPO_PUBLIC_* vars are inlined at this step
 RUN npm run build
 
-# Install a simple static server for the exported web app
+# Install a simple static server
 RUN npm install -g serve
 
-EXPOSE 3000
+EXPOSE 8080
 
-# Railway injects $PORT; fall back to 3000 for local testing.
-CMD ["sh", "-c", "serve dist -s -l ${PORT:-3000}"]
+# Railway injects $PORT; fall back to 8080 for local testing
+CMD ["sh", "-c", "serve dist -s -l ${PORT:-8080}"]

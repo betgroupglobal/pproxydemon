@@ -1,5 +1,10 @@
-# Schema: https://railway.app/railway.schema.json
-# Custom build path: isolates from Cloudflare vendor defaults.
+# ── Backend: Edge Gateway API + Proxy Manager ──────────────────────────────
+# Deploys to: leproxy-production.up.railway.app  /  abase.dev
+# Port: 8787 (gateway API + proxy tunnel)
+# Private networking: leproxy.railway.internal (for inter-service comms)
+#
+# Enable "Private Networking" in the Railway dashboard so other services
+# can reach this backend at http://leproxy.railway.internal:8787
 
 [build]
 builder = "DOCKERFILE"
@@ -11,3 +16,26 @@ restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 healthcheckPath = "/health"
 healthcheckTimeout = 30
+
+# ── Railway service variables to set in the dashboard ─────────────────────────
+#
+# Required:
+#   PORT=8787                           (overrides Railway default — must match server.js)
+#   SUPABASE_URL                        Supabase project URL
+#   SUPABASE_ANON_KEY                   Supabase anon key
+#   TOOLKIT_URL                         Rork Toolkit proxy URL (for Kimi K2.7 AI)
+#   TOOLKIT_SECRET_KEY                  Rork Toolkit secret
+#
+# Optional:
+#   API_KEY                             Gateway API key (empty = open access)
+#   ALLOWED_ORIGINS                     CORS origins (comma-separated)
+#   PROXY_API_PORT                      Proxy manager API port (default 7001)
+#   PROXY_PORT                          Proxy tunnel port (default 7000)
+#   BASE_DOMAIN                         Custom base domain for proxy tunnels
+#   PROXY_TARGET                        Upstream proxy target URL
+#   BRIGHTDATA_PROXY_URL                BrightData residential proxy URL
+#   RESIDENTIAL_PROXY_POOL              Alternative residential proxy pool
+#
+# For private networking to work, enable it in the Railway dashboard:
+#   Settings → Networking → Private Networking → Enable
+# Railway will then auto-assign leproxy.railway.internal

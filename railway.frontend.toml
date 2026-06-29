@@ -1,0 +1,33 @@
+# ── Frontend: Edge Gateway Dashboard (Expo web) ──────────────────────────────
+# Deploys to: frontend-production-4373.up.railway.app  /  admin.abase.dev
+# Port: 8080
+#
+# Rename this file to `railway.toml` before deploying to the frontend Railway app.
+# Or keep both configs and tell Railway which one to use via the dashboard.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "expo/Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+healthcheckPath = "/"
+healthcheckTimeout = 10
+
+# ── Railway service variables to set in the dashboard ─────────────────────────
+#
+# Required (build-time — inlined into the Expo web bundle):
+#   EXPO_PUBLIC_SUPABASE_URL            Supabase project URL
+#   EXPO_PUBLIC_SUPABASE_ANON_KEY       Supabase anon key
+#   EXPO_PUBLIC_RORK_FUNCTIONS_URL      Backend API URL (e.g. https://abase.dev)
+#   EXPO_PUBLIC_TOOLKIT_URL             Rork Toolkit proxy URL
+#   EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY Rork Toolkit secret
+#   EXPO_PUBLIC_PROJECT_ID              Rork project ID
+#   EXPO_PUBLIC_TEAM_ID                 Rork team ID
+#   EXPO_PUBLIC_RORK_API_BASE_URL       Rork API base URL
+#   EXPO_PUBLIC_RORK_APP_KEY            Rork app key
+#   EXPO_PUBLIC_RORK_AUTH_URL           Rork auth URL
+#
+# Railway automatically passes service variables as Docker build args.
+# No additional configuration needed — just set them in the dashboard.
