@@ -250,3 +250,52 @@ export type ServerValidateResult = {
   valid: boolean;
   issues: { severity: "critical" | "warning" | "info"; line?: string; message: string; fix?: string }[];
 };
+
+// ── AI-organized intercept analysis (Supabase-backed) ──
+
+export type InterceptAnalysis = {
+  id: number;
+  intercept_id: number;
+  category: string;
+  sensitivity_level: string;
+  summary: string;
+  extracted_credentials: Record<string, string[]>;
+  tags: string[];
+  security_findings: SecurityFinding[];
+  model_used: string;
+  tokens_used: number;
+  created_at: string;
+};
+
+export type SecurityFinding = {
+  finding: string;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  detail: string;
+};
+
+export type OrganizedIntercept = {
+  id: number;
+  intercept_id: number;
+  category: string;
+  sensitivity_level: string;
+  summary: string;
+  extracted_credentials: Record<string, string[]>;
+  tags: string[];
+  security_findings: SecurityFinding[];
+  model_used: string;
+  tokens_used: number;
+  created_at: string;
+  intercepted_traffic: InterceptCapture & { id: number; created_at: string; raw_timestamp: number };
+};
+
+export type AnalysisStats = {
+  total: number;
+  byCategory: Record<string, number>;
+  bySensitivity: Record<string, number>;
+  topTags: Record<string, number>;
+};
+
+export type AnalyzeInterceptResult = {
+  interceptId: number;
+  analysis: InterceptAnalysis;
+};

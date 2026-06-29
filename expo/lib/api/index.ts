@@ -51,6 +51,9 @@ export {
   fetchServerLogs,
   configureServer,
   validateServerConfig,
+  fetchOrganizedIntercepts,
+  fetchAnalysisStats,
+  analyzeIntercept,
 } from "./endpoints";
 
 export type {
@@ -80,4 +83,7 @@ export type {
   ServerLaunchInput,
   ServerConfigResult,
   ServerValidateResult,
+  OrganizedIntercept,
+  AnalysisStats,
+  AnalyzeInterceptResult,
 } from "./types";

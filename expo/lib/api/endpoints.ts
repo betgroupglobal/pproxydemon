@@ -19,6 +19,9 @@ import type {
   ServerLaunchInput,
   ServerConfigResult,
   ServerValidateResult,
+  OrganizedIntercept,
+  AnalysisStats,
+  AnalyzeInterceptResult,
 } from "./types";
 
 const BASE = () => getBaseUrl();
@@ -486,5 +489,54 @@ export async function replayHar(
     body: JSON.stringify(input),
   });
   const data = await parse<{ data: ReplayReport }>(response);
+  return data.data;
+}
+
+// ── AI-organized intercepts (Supabase-backed) ────────────────────────────────
+
+export async function fetchOrganizedIntercepts({
+  category,
+  sensitivity,
+  tag,
+  limit = 50,
+  offset = 0,
+}: {
+  category?: string;
+  sensitivity?: string;
+  tag?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<OrganizedIntercept[]> {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  params.set("offset", String(offset));
+  if (category) params.set("category", category);
+  if (sensitivity) params.set("sensitivity", sensitivity);
+  if (tag) params.set("tag", tag);
+
+  const response = await safeFetch(`${BASE()}/api/intercepts/analyzed?${params.toString()}`, {
+    cache: "no-store",
+  });
+  const data = await parse<{ data: OrganizedIntercept[] }>(response);
+  return data.data;
+}
+
+export async function fetchAnalysisStats(): Promise<AnalysisStats> {
+  const response = await safeFetch(`${BASE()}/api/intercepts/stats`, { cache: "no-store" });
+  const data = await parse<{ data: AnalysisStats }>(response);
+  return data.data;
+}
+
+export async function analyzeIntercept(
+  interceptId: number,
+  authHeader?: string,
+): Promise<AnalyzeInterceptResult> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authHeader) headers["Authorization"] = authHeader;
+  const response = await safeFetch(`${BASE()}/api/intercepts/${interceptId}/analyze`, {
+    method: "POST",
+    headers,
+  });
+  const data = await parse<{ data: AnalyzeInterceptResult }>(response);
   return data.data;
 }

