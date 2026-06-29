@@ -18,6 +18,7 @@ RUN npm install --production --no-audit --no-fund
 
 # Copy source files
 COPY functions/server.js ./
+COPY functions/supabase-client.js ./
 COPY functions/proxy-manager.js ./
 COPY functions/proxy-adapter.js ./
 COPY functions/start.sh ./
